@@ -52,7 +52,7 @@ make package/luci-app-cloudflareapi/compile V=s
 Прямая ссылка для версии `v1.0.0`:
 
 ```text
-https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-app-cloudflareapi-1.0.0-r1.apk
+https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-app-cloudflareapi-1.0.0-r2.apk
 ```
 
 Порядок установки:
@@ -65,7 +65,7 @@ https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-a
 6. Если установка ругается на подпись стороннего пакета, установи через SSH:
 
 ```sh
-wget -O /tmp/luci-app-cloudflareapi.apk https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-app-cloudflareapi-1.0.0-r1.apk
+wget -O /tmp/luci-app-cloudflareapi.apk https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-app-cloudflareapi-1.0.0-r2.apk
 apk add --allow-untrusted /tmp/luci-app-cloudflareapi.apk
 ```
 
