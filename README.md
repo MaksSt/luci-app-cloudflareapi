@@ -33,10 +33,10 @@ LuCI-приложение для OpenWrt, которое обновляет вы
 make package/luci-app-cloudflareapi/compile V=s
 ```
 
-После установки включи сервис:
+После установки пакет автоматически включает init-скрипт. Само обновление DNS начнёт работать только после включения в LuCI или через UCI:
 
 ```sh
-/etc/init.d/cloudflareapi enable
+/etc/init.d/cloudflareapi reload
 /etc/init.d/cloudflareapi start
 ```
 

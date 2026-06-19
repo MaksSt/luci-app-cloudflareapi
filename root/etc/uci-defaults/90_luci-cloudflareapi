@@ -1,0 +1,7 @@
+#!/bin/sh
+
+if [ -x /etc/init.d/cloudflareapi ]; then
+    /etc/init.d/cloudflareapi enable
+fi
+
+exit 0
