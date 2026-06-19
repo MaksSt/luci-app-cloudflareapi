@@ -43,13 +43,33 @@ function notifyError(error) {
     ui.addNotification(null, E('p', {}, error.message || String(error)), 'danger');
 }
 
+function readSettings() {
+    var options = [
+        'enabled',
+        'token',
+        'ip_url',
+        'check_hour',
+        'check_on_boot',
+        'last_ip',
+        'last_check',
+        'last_error'
+    ];
+    var settings = {};
+
+    for (var i = 0; i < options.length; i++) {
+        settings[options[i]] = uci.get('cloudflareapi', 'settings', options[i]);
+    }
+
+    return settings;
+}
+
 return view.extend({
     load: function() {
         return uci.load('cloudflareapi');
     },
 
     render: function() {
-        var settings = uci.get_all('cloudflareapi', 'settings') || {};
+        var settings = readSettings();
         var selectedRecords = readSelectedRecords();
         var tokenInput = E('input', {
             'class': 'cbi-input-password',
