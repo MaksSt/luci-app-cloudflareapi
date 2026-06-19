@@ -45,6 +45,25 @@ make package/luci-app-cloudflareapi/compile V=s
 6. Нажми `Upload`, затем подтверди установку.
 7. После установки обнови страницу LuCI или выйди и войди снова.
 
+## Установка через URL в Software
+
+Через URL нужно указывать прямую ссылку на готовый `.ipk` файл. Ссылка на GitHub-репозиторий или страницу релиза не подходит.
+
+Пример URL:
+
+```text
+https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-app-cloudflareapi_1.0.0-1_all.ipk
+```
+
+Порядок установки:
+
+1. Открой LuCI: `System -> Software`.
+2. Нажми `Update lists`.
+3. Установи зависимости: `curl`, `jsonfilter`, `ca-bundle`, `luci-base`.
+4. В поле `Download and install package` вставь прямой URL на `.ipk`.
+5. Нажми `OK` и подтверди установку.
+6. Если установка ругается на архитектуру или зависимости, значит `.ipk` собран не под твой OpenWrt/target или не хватает пакетов из репозитория OpenWrt.
+
 После установки пакет автоматически включает init-скрипт. Само обновление DNS начнёт работать только после включения в LuCI или через UCI:
 
 ```sh
