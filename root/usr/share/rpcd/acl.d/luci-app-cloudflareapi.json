@@ -10,6 +10,7 @@
         "write": {
             "uci": [ "cloudflareapi" ],
             "file": {
+                "/usr/libexec/cloudflareapi": [ "exec" ],
                 "/usr/bin/cloudflareapi-check": [ "exec" ],
                 "/etc/init.d/cloudflareapi": [ "exec" ]
             }

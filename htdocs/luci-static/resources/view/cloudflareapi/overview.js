@@ -145,9 +145,8 @@ return view.extend({
             uci.set('cloudflareapi', 'settings', 'check_on_boot', bootInput.checked ? '1' : '0');
 
             return uci.save()
-                .then(function() { return uci.apply(); })
                 .then(function() {
-                    return fs.exec('/etc/init.d/cloudflareapi', [ 'reload' ]).catch(function() {});
+                    return fs.exec('/usr/libexec/cloudflareapi', [ 'save' ]);
                 });
         }
 

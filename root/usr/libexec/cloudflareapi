@@ -29,6 +29,11 @@ cloudflare_get() {
 }
 
 case "$1" in
+    save)
+        uci commit "$CONFIG_NAME"
+        /etc/init.d/cloudflareapi reload >/dev/null 2>&1 || true
+        printf '{"success":true}\n'
+    ;;
     zones)
         require_token
         cloudflare_get '/zones?per_page=500'
