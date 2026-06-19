@@ -1,0 +1,44 @@
+#!/bin/sh
+
+CHECK_INTERVAL_SECONDS=900
+
+read_check_hour() {
+    local hour
+
+    hour="$(uci -q get cloudflareapi.settings.check_hour)"
+
+    case "$hour" in
+        ''|*[!0-9]*)
+            echo 3
+            return
+        ;;
+    esac
+
+    if [ "$hour" -gt 23 ]; then
+        echo 3
+        return
+    fi
+
+    echo "$hour"
+}
+
+while true; do
+    if [ "$(uci -q get cloudflareapi.settings.enabled)" != "1" ]; then
+        sleep "$CHECK_INTERVAL_SECONDS"
+        continue
+    fi
+
+    check_hour="$(read_check_hour)"
+    current_hour="$(date '+%H' | sed 's/^0//')"
+    today="$(date '+%Y-%m-%d')"
+    last_daily="$(uci -q get cloudflareapi.settings.last_daily)"
+
+    if [ "$current_hour" = "$check_hour" ] && [ "$last_daily" != "$today" ]; then
+        if /usr/bin/cloudflareapi-check daily; then
+            uci set cloudflareapi.settings.last_daily="$today"
+            uci commit cloudflareapi
+        fi
+    fi
+
+    sleep "$CHECK_INTERVAL_SECONDS"
+done

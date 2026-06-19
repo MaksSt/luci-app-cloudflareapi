@@ -1,0 +1,146 @@
+#!/bin/sh
+
+. /lib/functions.sh
+
+CONFIG_NAME='cloudflareapi'
+SETTINGS_SECTION='settings'
+CLOUDFLARE_API='https://api.cloudflare.com/client/v4'
+
+log_message() {
+    logger -t cloudflareapi "$1"
+}
+
+set_state() {
+    uci set "$CONFIG_NAME.$SETTINGS_SECTION.$1=$2"
+}
+
+commit_state() {
+    uci commit "$CONFIG_NAME"
+}
+
+set_error() {
+    local message="$1"
+
+    set_state last_error "$message"
+    set_state last_check "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+    commit_state
+    log_message "$message"
+}
+
+is_ipv4() {
+    echo "$1" | awk -F. '
+        NF != 4 { exit 1 }
+        {
+            for (i = 1; i <= 4; i++) {
+                if ($i !~ /^[0-9]+$/ || $i < 0 || $i > 255) {
+                    exit 1
+                }
+            }
+            exit 0
+        }
+    '
+}
+
+get_public_ip() {
+    local ip_url="$1"
+
+    curl -fsS --connect-timeout 10 --max-time 20 "$ip_url" | tr -d '\r\n\t '
+}
+
+update_record() {
+    local section="$1"
+    local enabled zone_id record_id record_name record_type response success
+
+    config_get_bool enabled "$section" enabled 1
+    [ "$enabled" = "1" ] || return 0
+
+    config_get zone_id "$section" zone_id
+    config_get record_id "$section" record_id
+    config_get record_name "$section" name
+    config_get record_type "$section" type
+
+    if [ -z "$zone_id" ] || [ -z "$record_id" ]; then
+        log_message "Пропущена DNS-запись без zone_id или record_id"
+        failed_count=$((failed_count + 1))
+        return 1
+    fi
+
+    if [ "$record_type" != "A" ]; then
+        log_message "Пропущена DNS-запись $record_name: поддерживается только тип A"
+        return 0
+    fi
+
+    response="$(curl -fsS --connect-timeout 10 --max-time 30 \
+        -X PATCH "$CLOUDFLARE_API/zones/$zone_id/dns_records/$record_id" \
+        -H "Authorization: Bearer $token" \
+        -H "Content-Type: application/json" \
+        --data "{\"content\":\"$new_ip\"}")"
+
+    if [ -z "$response" ]; then
+        log_message "Cloudflare не вернул ответ для $record_name"
+        failed_count=$((failed_count + 1))
+        return 1
+    fi
+
+    success="$(echo "$response" | jsonfilter -q -e '@.success')"
+
+    if [ "$success" != "true" ]; then
+        log_message "Cloudflare отклонил обновление $record_name"
+        failed_count=$((failed_count + 1))
+        return 1
+    fi
+
+    log_message "DNS-запись $record_name обновлена на $new_ip"
+    return 0
+}
+
+run_check() {
+    local enabled ip_url last_ip failed_count
+
+    config_load "$CONFIG_NAME"
+    config_get_bool enabled "$SETTINGS_SECTION" enabled 0
+    config_get token "$SETTINGS_SECTION" token
+    config_get ip_url "$SETTINGS_SECTION" ip_url 'https://api.ipify.org'
+    config_get last_ip "$SETTINGS_SECTION" last_ip
+
+    if [ "$enabled" != "1" ]; then
+        log_message "Проверка пропущена: сервис выключен"
+        return 0
+    fi
+
+    if [ -z "$token" ]; then
+        set_error "Cloudflare API token не задан"
+        return 1
+    fi
+
+    new_ip="$(get_public_ip "$ip_url")"
+
+    if ! is_ipv4 "$new_ip"; then
+        set_error "Публичный IPv4 не получен или имеет неверный формат"
+        return 1
+    fi
+
+    if [ "$new_ip" = "$last_ip" ]; then
+        set_state last_check "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        set_state last_error ''
+        commit_state
+        log_message "IP не изменился: $new_ip"
+        return 0
+    fi
+
+    failed_count=0
+    config_foreach update_record record
+
+    if [ "$failed_count" -gt 0 ]; then
+        set_error "Не все DNS-записи удалось обновить"
+        return 1
+    fi
+
+    set_state last_ip "$new_ip"
+    set_state last_check "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+    set_state last_error ''
+    commit_state
+    log_message "Публичный IP изменился: $last_ip -> $new_ip"
+}
+
+run_check "$@"

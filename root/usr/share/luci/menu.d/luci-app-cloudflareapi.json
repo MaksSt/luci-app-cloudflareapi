@@ -1,0 +1,13 @@
+{
+    "admin/services/cloudflareapi": {
+        "title": "Cloudflare DNS",
+        "order": 60,
+        "action": {
+            "type": "view",
+            "path": "cloudflareapi/overview"
+        },
+        "depends": {
+            "acl": [ "luci-app-cloudflareapi" ]
+        }
+    }
+}

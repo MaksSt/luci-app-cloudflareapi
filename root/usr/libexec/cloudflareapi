@@ -1,0 +1,50 @@
+#!/bin/sh
+
+CONFIG_NAME='cloudflareapi'
+CLOUDFLARE_API='https://api.cloudflare.com/client/v4'
+
+json_error() {
+    local code="$1"
+    local message="$2"
+
+    printf '{"success":false,"error":{"code":"%s","message":"%s"}}\n' "$code" "$message"
+}
+
+require_token() {
+    token="$(uci -q get "$CONFIG_NAME.settings.token")"
+
+    if [ -z "$token" ]; then
+        json_error 'TOKEN_MISSING' 'Cloudflare API token не задан'
+        exit 1
+    fi
+}
+
+cloudflare_get() {
+    local path="$1"
+
+    curl -fsS --connect-timeout 10 --max-time 30 \
+        -H "Authorization: Bearer $token" \
+        -H "Content-Type: application/json" \
+        "$CLOUDFLARE_API$path"
+}
+
+case "$1" in
+    zones)
+        require_token
+        cloudflare_get '/zones?per_page=500'
+    ;;
+    records)
+        require_token
+
+        if [ -z "$2" ]; then
+            json_error 'ZONE_ID_MISSING' 'zone_id обязателен'
+            exit 1
+        fi
+
+        cloudflare_get "/zones/$2/dns_records?per_page=500"
+    ;;
+    *)
+        json_error 'UNKNOWN_COMMAND' 'Неизвестная команда'
+        exit 1
+    ;;
+esac

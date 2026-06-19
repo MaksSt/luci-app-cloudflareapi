@@ -1,0 +1,18 @@
+{
+    "luci-app-cloudflareapi": {
+        "description": "Grant access to Cloudflare DNS updater",
+        "read": {
+            "uci": [ "cloudflareapi" ],
+            "file": {
+                "/usr/libexec/cloudflareapi": [ "exec" ]
+            }
+        },
+        "write": {
+            "uci": [ "cloudflareapi" ],
+            "file": {
+                "/usr/bin/cloudflareapi-check": [ "exec" ],
+                "/etc/init.d/cloudflareapi": [ "exec" ]
+            }
+        }
+    }
+}
