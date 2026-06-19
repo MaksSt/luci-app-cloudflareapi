@@ -43,6 +43,17 @@ function notifyError(error) {
     ui.addNotification(null, E('p', {}, error.message || String(error)), 'danger');
 }
 
+function createCheckbox(checked, onChange) {
+    var checkbox = E('input', {
+        'type': 'checkbox',
+        'change': onChange
+    });
+
+    checkbox.checked = !!checked;
+
+    return checkbox;
+}
+
 function readSettings() {
     var options = [
         'enabled',
@@ -77,14 +88,8 @@ return view.extend({
             'value': settings.token || '',
             'autocomplete': 'off'
         });
-        var enabledInput = E('input', {
-            'type': 'checkbox',
-            'checked': settings.enabled === '1'
-        });
-        var bootInput = E('input', {
-            'type': 'checkbox',
-            'checked': settings.check_on_boot !== '0'
-        });
+        var enabledInput = createCheckbox(settings.enabled === '1');
+        var bootInput = createCheckbox(settings.check_on_boot !== '0');
         var ipUrlInput = E('input', {
             'class': 'cbi-input-text',
             'type': 'url',
@@ -182,10 +187,7 @@ return view.extend({
             }
 
             filtered.forEach(function(record) {
-                var checkbox = E('input', {
-                    'type': 'checkbox',
-                    'checked': !!selectedRecords[record.id],
-                    'change': function() {
+                var checkbox = createCheckbox(!!selectedRecords[record.id], function() {
                         if (checkbox.checked) {
                             saveRecord(record, zone);
                         } else {
@@ -194,7 +196,6 @@ return view.extend({
 
                         selectedRecords = readSelectedRecords();
                         renderSelectedRecords();
-                    }
                 });
 
                 body.appendChild(E('tr', {}, [
