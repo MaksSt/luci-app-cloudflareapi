@@ -49,7 +49,7 @@ make package/luci-app-cloudflareapi/compile V=s
 
 Через URL нужно указывать прямую ссылку на готовый `.ipk` файл. Ссылка на GitHub-репозиторий или страницу релиза не подходит.
 
-Пример URL:
+Прямая ссылка для версии `v1.0.0`:
 
 ```text
 https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-app-cloudflareapi_1.0.0-1_all.ipk
