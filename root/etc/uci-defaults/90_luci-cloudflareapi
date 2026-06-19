@@ -4,4 +4,6 @@ if [ -x /etc/init.d/cloudflareapi ]; then
     /etc/init.d/cloudflareapi enable
 fi
 
+[ -f /etc/config/cloudflareapi ] && chmod 600 /etc/config/cloudflareapi
+
 exit 0
