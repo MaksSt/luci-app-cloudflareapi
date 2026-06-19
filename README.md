@@ -35,24 +35,24 @@ make package/luci-app-cloudflareapi/compile V=s
 
 ## Установка через вкладку Software
 
-Сначала нужен собранный `.ipk` пакет именно под твою архитектуру `aarch64_cortex-a53`.
+Для OpenWrt 25.x нужен `.apk` пакет, потому что LuCI вызывает новый пакетный менеджер `apk`.
 
 1. Открой LuCI: `System -> Software`.
 2. Нажми `Update lists`, чтобы OpenWrt обновил список доступных зависимостей.
 3. Установи зависимости, если они ещё не установлены: `curl`, `jsonfilter`, `ca-bundle`, `luci-base`.
 4. Открой блок `Upload Package`.
-5. Выбери файл `luci-app-cloudflareapi_*.ipk`.
+5. Выбери файл `luci-app-cloudflareapi-*.apk`.
 6. Нажми `Upload`, затем подтверди установку.
 7. После установки обнови страницу LuCI или выйди и войди снова.
 
 ## Установка через URL в Software
 
-Через URL нужно указывать прямую ссылку на готовый `.ipk` файл. Ссылка на GitHub-репозиторий или страницу релиза не подходит.
+Через URL нужно указывать прямую ссылку на готовый `.apk` файл. Ссылка на GitHub-репозиторий или страницу релиза не подходит.
 
 Прямая ссылка для версии `v1.0.0`:
 
 ```text
-https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-app-cloudflareapi_1.0.0-1_all.ipk
+https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-app-cloudflareapi-1.0.0-r1.apk
 ```
 
 Порядок установки:
@@ -60,9 +60,16 @@ https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-a
 1. Открой LuCI: `System -> Software`.
 2. Нажми `Update lists`.
 3. Установи зависимости: `curl`, `jsonfilter`, `ca-bundle`, `luci-base`.
-4. В поле `Download and install package` вставь прямой URL на `.ipk`.
+4. В поле `Download and install package` вставь прямой URL на `.apk`.
 5. Нажми `OK` и подтверди установку.
-6. Если установка ругается на архитектуру или зависимости, значит `.ipk` собран не под твой OpenWrt/target или не хватает пакетов из репозитория OpenWrt.
+6. Если установка ругается на подпись стороннего пакета, установи через SSH:
+
+```sh
+wget -O /tmp/luci-app-cloudflareapi.apk https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-app-cloudflareapi-1.0.0-r1.apk
+apk add --allow-untrusted /tmp/luci-app-cloudflareapi.apk
+```
+
+Если установка ругается на архитектуру или зависимости, значит пакет собран не под твой OpenWrt/target или не хватает пакетов из репозитория OpenWrt.
 
 После установки пакет автоматически включает init-скрипт. Само обновление DNS начнёт работать только после включения в LuCI или через UCI:
 
