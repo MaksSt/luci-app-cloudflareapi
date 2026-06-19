@@ -36,6 +36,8 @@ jobs:
 
       - name: Download OpenWrt SDK
         run: |
+          mkdir -p /tmp/openwrt-sdk
+          cd /tmp/openwrt-sdk
           wget -O sdk.tar.zst "$SDK_URL"
           tar --use-compress-program=unzstd -xf sdk.tar.zst
           echo "SDK_DIR=$(find "$PWD" -maxdepth 1 -type d -name 'openwrt-sdk-*' | head -n 1)" >> "$GITHUB_ENV"
@@ -53,7 +55,6 @@ jobs:
             --exclude='.git' \
             --exclude='.github' \
             --exclude='.release' \
-            --exclude='sdk.tar.zst' \
             "$GITHUB_WORKSPACE/" "$SDK_DIR/package/luci-app-cloudflareapi/"
 
       - name: Build package
