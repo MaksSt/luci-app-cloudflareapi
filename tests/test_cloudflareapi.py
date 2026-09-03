@@ -55,14 +55,26 @@ fi
         self._write_executable("logger", "#!/bin/sh\nexit 0\n")
         self._write_executable(
             "jsonfilter",
-            "#!/bin/sh\ncat >/dev/null\nprintf 'true\\n'\n",
+            """#!/bin/sh
+payload="$(cat)"
+case "$payload" in
+    *'"success":true'*) printf 'true\\n' ;;
+    *) printf 'false\\n' ;;
+esac
+""",
         )
         self._write_executable(
             "curl",
             """#!/bin/sh
 printf '%s\\n' \"$*\" >> \"$MOCK_CURL_LOG\"
 case \"$*\" in
-    *\"-X PATCH\"*) printf '{\"success\":true}\\n' ;;
+    *\"-X PATCH\"*)
+        if [ \"${MOCK_PATCH_FAIL:-0}\" = \"1\" ]; then
+            printf '{\"success\":false,\"errors\":[{\"message\":\"denied\"}]}\\n'
+        else
+            printf '{\"success\":true}\\n'
+        fi
+        ;;
     *\"api.ipify.org\"*) printf '%s\\n' \"${MOCK_NEW_IP:-203.0.113.5}\" ;;
     *) printf '{\"success\":true,\"result\":[],\"result_info\":{\"page\":1,\"total_pages\":1}}\\n' ;;
 esac
@@ -123,6 +135,16 @@ esac
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("-X PATCH", self.curl_log.read_text(encoding="utf-8"))
 
+    def test_cloudflare_update_failure_does_not_cache_ip(self):
+        result = self._run_check("manual", MOCK_PATCH_FAIL="1")
+        self.assertNotEqual(result.returncode, 0)
+        uci_log = self.uci_log.read_text(encoding="utf-8")
+        self.assertIn(
+            "cloudflareapi.settings.last_error=Не все DNS-записи удалось обновить",
+            uci_log,
+        )
+        self.assertNotIn("cloudflareapi.settings.last_ip=", uci_log)
+
     def test_invalid_public_ip_fails_without_update(self):
         result = self._run_check("manual", MOCK_NEW_IP="not-an-ip")
         self.assertNotEqual(result.returncode, 0)
@@ -158,7 +180,8 @@ esac
     def test_frontend_contains_pagination_and_dirty_record_contracts(self):
         source = OVERVIEW.read_text(encoding="utf-8")
         self.assertIn("function fetchAllPages", source)
-        self.assertIn("response.page < response.totalPages", source)
+        self.assertIn("response.page !== page", source)
+        self.assertIn("page < response.totalPages", source)
         self.assertIn("fetchAllPages([ 'zones' ])", source)
         self.assertIn("fetchAllPages([ 'records', zone.id ])", source)
         self.assertIn("uci.set('cloudflareapi', 'settings', 'last_ip', '')", source)

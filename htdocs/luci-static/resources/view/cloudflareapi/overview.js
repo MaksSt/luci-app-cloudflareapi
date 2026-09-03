@@ -50,10 +50,16 @@ function fetchAllPages(args, page, items) {
     return fs.exec_direct('/usr/libexec/cloudflareapi', args.concat([ String(page) ]))
         .then(function(raw) {
             var response = parseApiPage(raw);
-            var combined = items.concat(response.result);
+            var combined;
 
-            if (response.page < response.totalPages) {
-                return fetchAllPages(args, response.page + 1, combined);
+            if (response.page !== page || response.totalPages < response.page) {
+                throw new Error(_('Cloudflare API вернул некорректные данные пагинации'));
+            }
+
+            combined = items.concat(response.result);
+
+            if (page < response.totalPages) {
+                return fetchAllPages(args, page + 1, combined);
             }
 
             return combined;

@@ -16,7 +16,7 @@ on:
         default: v1.0.0
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -93,8 +93,20 @@ jobs:
           name: luci-app-cloudflareapi-apk
           path: dist/*.apk
 
+  release:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_release == 'true' }}
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: luci-app-cloudflareapi-apk
+          path: dist
+
       - name: Upload release asset
-        if: ${{ inputs.upload_release == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

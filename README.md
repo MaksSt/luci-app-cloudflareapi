@@ -32,18 +32,18 @@ LuCI-приложение для OpenWrt, которое обновляет вы
 Рабочий вариант через LuCI:
 
 1. Скачай `.apk` из релиза на компьютер:
-   `https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-app-cloudflareapi-1.0.0-r5.apk`
+   `https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-app-cloudflareapi-1.0.0-r6.apk`
 2. Открой LuCI: `System -> Software`.
 3. Нажми `Update lists`.
 4. Установи зависимости, если их нет: `curl`, `jsonfilter`, `ca-bundle`, `luci-base`.
-5. В блоке `Upload Package` выбери скачанный `luci-app-cloudflareapi-1.0.0-r5.apk`.
+5. В блоке `Upload Package` выбери скачанный `luci-app-cloudflareapi-1.0.0-r6.apk`.
 6. Нажми `Upload`, затем подтверди установку.
 7. После установки обнови страницу LuCI или выйди и войди снова.
 
 ## Установка через SSH
 
 ```sh
-wget -O /tmp/luci-app-cloudflareapi.apk https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-app-cloudflareapi-1.0.0-r5.apk
+wget -O /tmp/luci-app-cloudflareapi.apk https://github.com/MaksSt/luci-app-cloudflareapi/releases/download/v1.0.0/luci-app-cloudflareapi-1.0.0-r6.apk
 apk add --allow-untrusted /tmp/luci-app-cloudflareapi.apk
 /etc/init.d/cloudflareapi reload
 /etc/init.d/cloudflareapi start

@@ -30,22 +30,38 @@ const loadHelpers = new Function(
 );
 const helpers = loadHelpers(fsMock, function(value) { return value; });
 
-helpers.fetchAllPages([ 'zones' ])
-    .then(function(result) {
-        assert.deepEqual(result, [ 'zone-1', 'zone-2', 'zone-3' ]);
-        assert.deepEqual(calls, [ 1, 2, 3 ]);
-        assert.throws(
-            function() {
-                helpers.parseApiPage(JSON.stringify({
-                    success: false,
-                    errors: [ { message: 'API failure' } ]
-                }));
-            },
-            /API failure/
-        );
-        console.log('Frontend pagination tests passed.');
-    })
-    .catch(function(error) {
-        console.error(error);
-        process.exitCode = 1;
-    });
+async function main() {
+    const result = await helpers.fetchAllPages([ 'zones' ]);
+    assert.deepEqual(result, [ 'zone-1', 'zone-2', 'zone-3' ]);
+    assert.deepEqual(calls, [ 1, 2, 3 ]);
+    assert.throws(
+        function() {
+            helpers.parseApiPage(JSON.stringify({
+                success: false,
+                errors: [ { message: 'API failure' } ]
+            }));
+        },
+        /API failure/
+    );
+
+    const invalidHelpers = loadHelpers({
+        exec_direct: function() {
+            return Promise.resolve(JSON.stringify({
+                success: true,
+                result: [],
+                result_info: { page: 1, total_pages: 2 }
+            }));
+        }
+    }, function(value) { return value; });
+
+    await assert.rejects(
+        invalidHelpers.fetchAllPages([ 'zones' ], 2),
+        /некорректные данные пагинации/
+    );
+    console.log('Frontend pagination tests passed.');
+}
+
+main().catch(function(error) {
+    console.error(error);
+    process.exitCode = 1;
+});
