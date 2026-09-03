@@ -36,7 +36,7 @@ LuCI-приложение для OpenWrt, которое обновляет вы
 2. Открой LuCI: `System -> Software`.
 3. Нажми `Update lists`.
 4. Установи зависимости, если их нет: `curl`, `jsonfilter`, `ca-bundle`, `luci-base`.
-5. В блоке `Upload Package` выбери скачанный `luci-app-cloudflareapi-1.0.0-r2.apk`.
+5. В блоке `Upload Package` выбери скачанный `luci-app-cloudflareapi-1.0.0-r5.apk`.
 6. Нажми `Upload`, затем подтверди установку.
 7. После установки обнови страницу LuCI или выйди и войди снова.
 

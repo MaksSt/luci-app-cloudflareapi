@@ -27,7 +27,7 @@ function readSelectedRecords() {
     return selected;
 }
 
-function parseApiResponse(raw) {
+function parseApiPage(raw) {
     var response = JSON.parse(raw || '{}');
 
     if (!response.success) {
@@ -36,7 +36,28 @@ function parseApiResponse(raw) {
             : _('Cloudflare API вернул ошибку'));
     }
 
-    return response.result || [];
+    return {
+        result: response.result || [],
+        page: Number(response.result_info && response.result_info.page) || 1,
+        totalPages: Number(response.result_info && response.result_info.total_pages) || 1
+    };
+}
+
+function fetchAllPages(args, page, items) {
+    page = page || 1;
+    items = items || [];
+
+    return fs.exec_direct('/usr/libexec/cloudflareapi', args.concat([ String(page) ]))
+        .then(function(raw) {
+            var response = parseApiPage(raw);
+            var combined = items.concat(response.result);
+
+            if (response.page < response.totalPages) {
+                return fetchAllPages(args, response.page + 1, combined);
+            }
+
+            return combined;
+        });
 }
 
 function notifyError(error) {
@@ -156,7 +177,12 @@ return view.extend({
         }
 
         function saveRecord(record, zone) {
-            var sectionId = sectionIdByRecordId(record.id) || uci.add('cloudflareapi', 'record');
+            var sectionId = sectionIdByRecordId(record.id);
+
+            if (!sectionId) {
+                sectionId = uci.add('cloudflareapi', 'record');
+                uci.set('cloudflareapi', 'settings', 'last_ip', '');
+            }
 
             uci.set('cloudflareapi', sectionId, 'enabled', '1');
             uci.set('cloudflareapi', sectionId, 'zone_id', zone.id);
@@ -221,10 +247,10 @@ return view.extend({
             target.innerHTML = '';
             target.appendChild(E('em', {}, _('Загрузка DNS-записей...')));
 
-            fs.exec_direct('/usr/libexec/cloudflareapi', [ 'records', zone.id ])
-                .then(function(raw) {
+            fetchAllPages([ 'records', zone.id ])
+                .then(function(records) {
                     target.innerHTML = '';
-                    target.appendChild(renderRecords(zone, parseApiResponse(raw)));
+                    target.appendChild(renderRecords(zone, records));
                 })
                 .catch(function(error) {
                     target.innerHTML = '';
@@ -260,10 +286,10 @@ return view.extend({
 
             return saveSettings()
                 .then(function() {
-                    return fs.exec_direct('/usr/libexec/cloudflareapi', [ 'zones' ]);
+                    return fetchAllPages([ 'zones' ]);
                 })
-                .then(function(raw) {
-                    renderZones(parseApiResponse(raw));
+                .then(function(zones) {
+                    renderZones(zones);
                 })
                 .catch(function(error) {
                     zonesContainer.innerHTML = '';
@@ -277,7 +303,7 @@ return view.extend({
                     return fs.exec('/usr/bin/cloudflareapi-check', [ 'manual' ]);
                 })
                 .then(function() {
-                    ui.addNotification(null, E('p', {}, _('Проверка запущена')), 'info');
+                    ui.addNotification(null, E('p', {}, _('Проверка завершена')), 'info');
                     return uci.load('cloudflareapi');
                 })
                 .catch(notifyError);
