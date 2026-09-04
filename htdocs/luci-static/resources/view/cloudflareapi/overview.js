@@ -101,6 +101,37 @@ function readSettings() {
     return settings;
 }
 
+// Keep layout and accessibility helpers independent of DNS/UCI operations.
+function field(id, title, control, hint) {
+    control.id = id;
+    if (hint) control.setAttribute('aria-describedby', id + '-hint');
+    return E('div', { 'class': 'cf-field' }, [
+        E('label', { 'for': id, 'class': 'cf-label' }, title),
+        E('div', { 'class': 'cf-control' }, [
+            control,
+            hint ? E('p', { 'id': id + '-hint', 'class': 'cf-help' }, hint) : ''
+        ])
+    ]);
+}
+
+function cell(label, content, className) {
+    return E('td', { 'data-label': label, 'class': className || '', 'role': 'cell' }, content);
+}
+
+function recordTable(labels, body, caption) {
+    return E('table', { 'class': 'table cbi-section-table cf-table', 'role': 'table' }, [
+        E('caption', { 'class': 'cf-sr-only' }, caption),
+        E('thead', {}, E('tr', { 'class': 'tr table-titles', 'role': 'row' }, labels.map(function(label) {
+            return E('th', { 'class': 'th', 'scope': 'col', 'role': 'columnheader' }, label);
+        }))),
+        body
+    ]);
+}
+
+function message(text, error) {
+    return E('p', { 'class': 'cf-message' + (error ? ' cf-error' : ''), 'role': error ? 'alert' : 'status' }, text);
+}
+
 return view.extend({
     load: function() {
         return uci.load('cloudflareapi');
@@ -129,7 +160,8 @@ return view.extend({
             'max': '23',
             'value': settings.check_hour || '3'
         });
-        var zonesContainer = E('div', { 'class': 'cbi-section' });
+        var zonesContainer = E('div', { 'class': 'cf-zones' },
+            message(_('Загрузите зоны, чтобы выбрать A-записи для обновления.')));
         var selectedContainer = E('tbody');
 
         function renderSelectedRecords() {
@@ -138,19 +170,21 @@ return view.extend({
             selectedContainer.innerHTML = '';
 
             if (!sections.length) {
-                selectedContainer.appendChild(E('tr', {}, [
-                    E('td', { 'colspan': '5', 'class': 'center' }, _('DNS-записи пока не выбраны'))
+                selectedContainer.appendChild(E('tr', { 'role': 'row' }, [
+                    E('td', { 'colspan': '5', 'class': 'cf-empty' }, _('DNS-записи пока не выбраны. Загрузите зоны ниже и отметьте нужные A-записи.'))
                 ]));
                 return;
             }
 
             sections.forEach(function(record) {
-                selectedContainer.appendChild(E('tr', {}, [
-                    E('td', {}, record.name || '-'),
-                    E('td', {}, record.type || '-'),
-                    E('td', {}, record.zone_name || '-'),
-                    E('td', {}, record.enabled === '0' ? _('Выключена') : _('Включена')),
-                    E('td', { 'class': 'right' }, E('button', {
+                selectedContainer.appendChild(E('tr', { 'role': 'row' }, [
+                    cell(_('Имя'), record.name || '-', 'cf-record-name'),
+                    cell(_('Тип'), record.type || '-'),
+                    cell(_('Зона'), record.zone_name || '-'),
+                    cell(_('Статус'), record.enabled === '0' ? _('Выключена') : _('Включена')),
+                    cell(_('Действие'), E('button', {
+                        'type': 'button',
+                        'aria-label': _('Удалить запись') + ' ' + (record.name || ''),
                         'class': 'btn cbi-button cbi-button-remove',
                         'click': function() {
                             uci.remove('cloudflareapi', record['.name']);
@@ -213,8 +247,8 @@ return view.extend({
             });
 
             if (!filtered.length) {
-                body.appendChild(E('tr', {}, [
-                    E('td', { 'colspan': '4', 'class': 'center' }, _('A-записи в этой зоне не найдены'))
+                body.appendChild(E('tr', { 'role': 'row' }, [
+                    E('td', { 'colspan': '4', 'class': 'cf-empty' }, _('A-записи в этой зоне не найдены'))
                 ]));
             }
 
@@ -230,28 +264,23 @@ return view.extend({
                         renderSelectedRecords();
                 });
 
-                body.appendChild(E('tr', {}, [
-                    E('td', {}, checkbox),
-                    E('td', {}, record.name),
-                    E('td', {}, record.type),
-                    E('td', {}, record.content || '-')
+                body.appendChild(E('tr', { 'role': 'row' }, [
+                    cell(_('Обновлять'), E('label', { 'class': 'cf-check-target' }, [
+                        checkbox, E('span', { 'class': 'cf-sr-only' }, _('Обновлять запись') + ' ' + record.name)
+                    ])),
+                    cell(_('Имя'), record.name, 'cf-record-name'),
+                    cell(_('Тип'), record.type),
+                    cell(_('Текущее значение'), record.content || '-')
                 ]));
             });
 
-            return E('table', { 'class': 'table cbi-section-table' }, [
-                E('tr', { 'class': 'tr table-titles' }, [
-                    E('th', { 'class': 'th' }, ''),
-                    E('th', { 'class': 'th' }, _('Имя')),
-                    E('th', { 'class': 'th' }, _('Тип')),
-                    E('th', { 'class': 'th' }, _('Текущее значение'))
-                ]),
-                body
-            ]);
+            return recordTable([ _('Обновлять'), _('Имя'), _('Тип'), _('Текущее значение') ], body,
+                _('A-записи зоны') + ' ' + zone.name);
         }
 
         function loadRecords(zone, target) {
             target.innerHTML = '';
-            target.appendChild(E('em', {}, _('Загрузка DNS-записей...')));
+            target.appendChild(message(_('Загрузка DNS-записей...')));
 
             fetchAllPages([ 'records', zone.id ])
                 .then(function(records) {
@@ -260,6 +289,7 @@ return view.extend({
                 })
                 .catch(function(error) {
                     target.innerHTML = '';
+                    target.appendChild(message(_('Не удалось загрузить записи. Попробуйте ещё раз.'), true));
                     notifyError(error);
                 });
         }
@@ -268,19 +298,22 @@ return view.extend({
             zonesContainer.innerHTML = '';
 
             if (!zones.length) {
-                zonesContainer.appendChild(E('p', {}, _('Cloudflare зоны не найдены')));
+                zonesContainer.appendChild(message(_('Cloudflare зоны не найдены')));
                 return;
             }
 
             zones.forEach(function(zone) {
-                var recordsTarget = E('div', { 'class': 'cbi-value-description' });
+                var recordsTarget = E('div', { 'class': 'cf-records' });
 
-                zonesContainer.appendChild(E('div', { 'class': 'cbi-section' }, [
-                    E('h3', {}, zone.name),
-                    E('button', {
-                        'class': 'btn cbi-button cbi-button-apply',
-                        'click': function() { loadRecords(zone, recordsTarget); }
-                    }, _('Показать A-записи')),
+                zonesContainer.appendChild(E('section', { 'class': 'cf-zone' }, [
+                    E('div', { 'class': 'cf-section-heading' }, [
+                        E('h4', {}, zone.name),
+                        E('button', {
+                            'type': 'button',
+                            'class': 'btn cbi-button cbi-button-apply',
+                            'click': function() { loadRecords(zone, recordsTarget); }
+                        }, _('Показать A-записи'))
+                    ]),
                     recordsTarget
                 ]));
             });
@@ -288,7 +321,7 @@ return view.extend({
 
         function loadZones() {
             zonesContainer.innerHTML = '';
-            zonesContainer.appendChild(E('em', {}, _('Загрузка зон Cloudflare...')));
+            zonesContainer.appendChild(message(_('Загрузка зон Cloudflare...')));
 
             return saveSettings()
                 .then(function() {
@@ -299,6 +332,7 @@ return view.extend({
                 })
                 .catch(function(error) {
                     zonesContainer.innerHTML = '';
+                    zonesContainer.appendChild(message(_('Не удалось загрузить зоны. Проверьте настройки и повторите загрузку.'), true));
                     notifyError(error);
                 });
         }
@@ -317,72 +351,65 @@ return view.extend({
 
         renderSelectedRecords();
 
-        return E('div', { 'class': 'cbi-map' }, [
-            E('h2', {}, _('Cloudflare DNS')),
-            E('div', { 'class': 'cbi-section' }, [
-                E('div', { 'class': 'cbi-value' }, [
-                    E('label', { 'class': 'cbi-value-title' }, _('Включить обновление')),
-                    E('div', { 'class': 'cbi-value-field' }, enabledInput)
-                ]),
-                E('div', { 'class': 'cbi-value' }, [
-                    E('label', { 'class': 'cbi-value-title' }, _('Cloudflare API Token')),
-                    E('div', { 'class': 'cbi-value-field' }, tokenInput)
-                ]),
-                E('div', { 'class': 'cbi-value' }, [
-                    E('label', { 'class': 'cbi-value-title' }, _('URL проверки IP')),
-                    E('div', { 'class': 'cbi-value-field' }, ipUrlInput)
-                ]),
-                E('div', { 'class': 'cbi-value' }, [
-                    E('label', { 'class': 'cbi-value-title' }, _('Ежедневная проверка, час')),
-                    E('div', { 'class': 'cbi-value-field' }, hourInput)
-                ]),
-                E('div', { 'class': 'cbi-value' }, [
-                    E('label', { 'class': 'cbi-value-title' }, _('Проверять при старте роутера')),
-                    E('div', { 'class': 'cbi-value-field' }, bootInput)
-                ]),
-                E('div', { 'class': 'cbi-value' }, [
-                    E('label', { 'class': 'cbi-value-title' }, _('Последний IP')),
-                    E('div', { 'class': 'cbi-value-field' }, settings.last_ip || '-')
-                ]),
-                E('div', { 'class': 'cbi-value' }, [
-                    E('label', { 'class': 'cbi-value-title' }, _('Последняя проверка')),
-                    E('div', { 'class': 'cbi-value-field' }, settings.last_check || '-')
-                ]),
-                E('div', { 'class': 'cbi-value' }, [
-                    E('label', { 'class': 'cbi-value-title' }, _('Последняя ошибка')),
-                    E('div', { 'class': 'cbi-value-field' }, settings.last_error || '-')
-                ]),
-                E('div', { 'class': 'right' }, [
-                    E('button', {
-                        'class': 'btn cbi-button cbi-button-save',
-                        'click': saveSettings
-                    }, _('Сохранить')),
-                    ' ',
-                    E('button', {
-                        'class': 'btn cbi-button cbi-button-apply',
-                        'click': runCheckNow
-                    }, _('Проверить сейчас'))
-                ])
+        return E('div', { 'class': 'cbi-map cf-app' }, [
+            E('link', { 'rel': 'stylesheet', 'href': L.resource('view/cloudflareapi/overview.css') }),
+            E('div', { 'class': 'cf-header' }, [
+                E('h2', {}, _('Cloudflare DNS')),
+                E('p', { 'class': 'cf-help' }, _('Автоматическое обновление A-записей при изменении публичного IP роутера.'))
             ]),
-            E('div', { 'class': 'cbi-section' }, [
-                E('h3', {}, _('Выбранные DNS-записи')),
-                E('table', { 'class': 'table cbi-section-table' }, [
-                    E('tr', { 'class': 'tr table-titles' }, [
-                        E('th', { 'class': 'th' }, _('Имя')),
-                        E('th', { 'class': 'th' }, _('Тип')),
-                        E('th', { 'class': 'th' }, _('Зона')),
-                        E('th', { 'class': 'th' }, _('Статус')),
-                        E('th', { 'class': 'th' }, '')
+            E('div', { 'class': 'cf-layout' }, [
+                E('section', { 'class': 'cf-panel', 'aria-labelledby': 'cf-settings-title' }, [
+                    E('h3', { 'id': 'cf-settings-title' }, _('Настройки обновления')),
+                    field('cf-enabled', _('Включить обновление'), enabledInput),
+                    field('cf-token', _('Cloudflare API Token'), tokenInput,
+                        _('Права Zone:Read и DNS:Edit только для нужных зон.')),
+                    field('cf-ip-url', _('URL проверки IP'), ipUrlInput),
+                    field('cf-hour', _('Ежедневная проверка, час'), hourInput,
+                        _('От 0 до 23, по времени роутера.')),
+                    field('cf-boot', _('Проверять при старте роутера'), bootInput),
+                    E('div', { 'class': 'cf-actions' }, [
+                        E('button', {
+                            'type': 'button',
+                            'class': 'btn cbi-button cbi-button-save',
+                            'click': function() { return saveSettings().catch(notifyError); }
+                        }, _('Сохранить')),
+                        E('button', {
+                            'type': 'button',
+                            'class': 'btn cbi-button cbi-button-apply',
+                            'click': runCheckNow
+                        }, _('Проверить сейчас'))
+                    ])
+                ]),
+                E('section', { 'class': 'cf-panel cf-status', 'aria-labelledby': 'cf-status-title' }, [
+                    E('h3', { 'id': 'cf-status-title' }, _('Состояние')),
+                    E('p', { 'class': 'cf-service-state' }, settings.enabled === '1' ? _('Обновление включено') : _('Обновление выключено')),
+                    E('dl', {}, [
+                        E('dt', {}, _('Последний IP')),
+                        E('dd', { 'class': 'cf-ip' }, settings.last_ip || '—'),
+                        E('dt', {}, _('Последняя проверка')),
+                        E('dd', {}, settings.last_check || _('Пока не выполнялась')),
+                        E('dt', {}, _('Последняя ошибка')),
+                        E('dd', {}, settings.last_error || _('Нет сохранённых ошибок'))
                     ]),
-                    selectedContainer
+                    E('p', { 'class': 'cf-help' }, _('Состояние на момент открытия страницы. После проверки обновите страницу, чтобы увидеть новые данные.'))
                 ])
             ]),
-            E('div', { 'class': 'cbi-section' }, [
-                E('h3', {}, _('Cloudflare зоны')),
-                E('button', {
-                    'class': 'btn cbi-button cbi-button-apply',
-                    'click': loadZones
-                }, _('Загрузить зоны')),
+            E('section', { 'class': 'cf-panel', 'aria-labelledby': 'cf-selected-title' }, [
+                E('h3', { 'id': 'cf-selected-title' }, _('Выбранные DNS-записи')),
+                E('p', { 'class': 'cf-help' }, _('Изменения списка применяются кнопкой «Сохранить».')),
+                recordTable([ _('Имя'), _('Тип'), _('Зона'), _('Статус'), _('Действие') ],
+                    selectedContainer, _('Выбранные DNS-записи'))
+            ]),
+            E('section', { 'class': 'cf-panel', 'aria-labelledby': 'cf-zones-title' }, [
+                E('div', { 'class': 'cf-section-heading' }, [
+                    E('h3', { 'id': 'cf-zones-title' }, _('Cloudflare зоны')),
+                    E('button', {
+                        'type': 'button',
+                        'class': 'btn cbi-button cbi-button-apply',
+                        'click': loadZones
+                    }, _('Загрузить зоны'))
+                ]),
+                E('p', { 'class': 'cf-help' }, _('Загрузка зон сначала сохраняет текущие настройки и выбранные записи.')),
                 zonesContainer
             ])
         ]);

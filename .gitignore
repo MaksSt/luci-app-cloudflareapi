@@ -12,3 +12,6 @@
 /tmp/
 /logs/
 /.release/
+/tests/browser/node_modules/
+/tests/browser/screenshots/
+__pycache__/
