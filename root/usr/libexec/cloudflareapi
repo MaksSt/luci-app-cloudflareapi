@@ -7,7 +7,7 @@ json_error() {
     local code="$1"
     local message="$2"
 
-    printf '{"success":false,"error":{"code":"%s","message":"%s"}}\n' "$code" "$message"
+    printf '{"success":false,"errors":[{"code":"%s","message":"%s"}],"result":[]}\n' "$code" "$message"
 }
 
 require_token() {
@@ -36,7 +36,16 @@ case "$1" in
     ;;
     zones)
         require_token
-        cloudflare_get '/zones?per_page=500'
+        page="${2:-1}"
+
+        case "$page" in
+            ''|*[!0-9]*|0)
+                json_error 'PAGE_INVALID' 'page должен быть положительным числом'
+                exit 1
+            ;;
+        esac
+
+        cloudflare_get "/zones?page=$page&per_page=50"
     ;;
     records)
         require_token
@@ -46,7 +55,15 @@ case "$1" in
             exit 1
         fi
 
-        cloudflare_get "/zones/$2/dns_records?per_page=500"
+        page="${3:-1}"
+        case "$page" in
+            ''|*[!0-9]*|0)
+                json_error 'PAGE_INVALID' 'page должен быть положительным числом'
+                exit 1
+            ;;
+        esac
+
+        cloudflare_get "/zones/$2/dns_records?page=$page&per_page=50"
     ;;
     *)
         json_error 'UNKNOWN_COMMAND' 'Неизвестная команда'

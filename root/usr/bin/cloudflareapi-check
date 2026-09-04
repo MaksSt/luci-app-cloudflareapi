@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. /lib/functions.sh
+. "${CLOUDFLARE_FUNCTIONS_LIB:-/lib/functions.sh}"
 
 CONFIG_NAME='cloudflareapi'
 SETTINGS_SECTION='settings'
@@ -95,8 +95,9 @@ update_record() {
 }
 
 run_check() {
-    local enabled ip_url last_ip failed_count
+    local mode enabled ip_url last_ip failed_count
 
+    mode="${1:-scheduled}"
     config_load "$CONFIG_NAME"
     config_get_bool enabled "$SETTINGS_SECTION" enabled 0
     config_get token "$SETTINGS_SECTION" token
@@ -120,7 +121,7 @@ run_check() {
         return 1
     fi
 
-    if [ "$new_ip" = "$last_ip" ]; then
+    if [ "$new_ip" = "$last_ip" ] && [ "$mode" != "manual" ]; then
         set_state last_check "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
         set_state last_error ''
         commit_state

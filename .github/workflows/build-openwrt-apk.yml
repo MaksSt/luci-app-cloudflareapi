@@ -1,6 +1,9 @@
 name: build-openwrt-apk
 
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
     inputs:
       upload_release:
@@ -13,7 +16,7 @@ on:
         default: v1.0.0
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -24,7 +27,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Validate source
+        run: |
+          chmod +x tests/run.sh
+          tests/run.sh
 
       - name: Install host dependencies
         run: |
@@ -34,12 +42,21 @@ jobs:
             git libncurses-dev libssl-dev python3 rsync unzip zlib1g-dev \
             file wget xz-utils zstd
 
-      - name: Download OpenWrt SDK
+      - name: Download and verify OpenWrt SDK
         run: |
+          set -eu
           mkdir -p /tmp/openwrt-sdk
           cd /tmp/openwrt-sdk
-          wget -O sdk.tar.zst "$SDK_URL"
-          tar --use-compress-program=unzstd -xf sdk.tar.zst
+          sdk_name="$(basename "$SDK_URL")"
+          sdk_dir_url="${SDK_URL%/*}"
+          wget -O "$sdk_name" "$SDK_URL"
+          wget -O sha256sums "$sdk_dir_url/sha256sums"
+          awk -v name="$sdk_name" '
+            $2 == name || $2 == "*" name { print $1 "  " name; found = 1 }
+            END { if (!found) exit 1 }
+          ' sha256sums > sdk.sha256
+          sha256sum -c sdk.sha256
+          tar --use-compress-program=unzstd -xf "$sdk_name"
           echo "SDK_DIR=$(find "$PWD" -maxdepth 1 -type d -name 'openwrt-sdk-*' | head -n 1)" >> "$GITHUB_ENV"
 
       - name: Prepare feeds
@@ -71,13 +88,25 @@ jobs:
           ls -l "$GITHUB_WORKSPACE/dist"
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: luci-app-cloudflareapi-apk
           path: dist/*.apk
 
+  release:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_release == 'true' }}
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: luci-app-cloudflareapi-apk
+          path: dist
+
       - name: Upload release asset
-        if: ${{ inputs.upload_release == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
