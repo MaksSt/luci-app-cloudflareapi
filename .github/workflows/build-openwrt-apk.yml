@@ -18,8 +18,42 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  test-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tests/browser/package-lock.json
+      - name: Install browser test dependencies
+        run: npm ci --prefix tests/browser
+      - name: Install Chromium
+        working-directory: tests/browser
+        run: npx playwright install --with-deps chromium
+      - name: Test responsive UI
+        run: npm test --prefix tests/browser
+      - name: Upload UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: responsive-ui-screenshots
+          path: tests/browser/screenshots/*.png
+          if-no-files-found: warn
+          retention-days: 7
+
   build:
+    needs: test-ui
+    timeout-minutes: 45
     runs-on: ubuntu-24.04
 
     env:
@@ -72,6 +106,7 @@ jobs:
             --exclude='.git' \
             --exclude='.github' \
             --exclude='.release' \
+            --exclude='tests' \
             "$GITHUB_WORKSPACE/" "$SDK_DIR/package/luci-app-cloudflareapi/"
 
       - name: Build package
